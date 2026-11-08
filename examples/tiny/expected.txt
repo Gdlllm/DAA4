@@ -1,0 +1,9 @@
+Mutations: 1
+Shared core: 13
+Marker hits: 2
+First hit: 0
+Border length: 2
+Shared words: 2
+Tests needed: 2
+Cheapest testing: 6
+Longest chain: 4

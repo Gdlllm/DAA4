@@ -1,0 +1,455 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Patient Zero: lab console</title>
+<style>
+:root{--bg:#0a1117;--bg2:#0e171f;--card:#121d27;--card2:#172431;--line:#233342;--ink:#e8f0f6;--mute:#8ba2b4;--dim:#5d768a;--acc:#2dd4bf;--ok:#34d399;--bad:#fb7185;--warn:#fbbf24;
+--A:#4ade80;--C:#60a5fa;--G:#fbbf24;--T:#f87171}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#10303a 0%,transparent 60%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1180px;margin:auto;padding:0 22px}
+.mono{font-family:Consolas,Menlo,monospace}
+header.hero{padding:34px 0 10px}
+.kicker{color:var(--acc);letter-spacing:.18em;font-size:12px;text-transform:uppercase}
+h1{margin:6px 0 4px;font-size:38px;letter-spacing:.2px;line-height:1.1}
+.lede{color:var(--mute);max-width:760px;margin:6px 0 0}
+#helix{width:100%;height:96px;display:block;margin-top:14px}
+.board{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:16px 0 8px}
+.cell{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cell .n{color:var(--mute);font-size:12px}.cell .v{font-weight:600;font-variant-numeric:tabular-nums}
+.cell.ok{border-color:#1f6b55}.cell.bad{border-color:#7a2f3d}
+.mark{font-weight:700}.ok .mark{color:var(--ok)}.bad .mark{color:var(--bad)}
+.prog{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 12px;font-size:13px;color:var(--mute);text-decoration:none}
+.chip.ok{color:var(--ok);border-color:#1f6b55}.chip.bad{color:var(--bad);border-color:#7a2f3d}
+.banner{margin:14px 0;padding:14px 18px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.banner.win{border-color:#1f6b55;background:linear-gradient(90deg,#0f2b27,var(--card))}
+section.m{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:18px 0;overflow-x:auto}
+section.m h2{margin:0;font-size:21px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tag{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:1px 10px;color:var(--mute);font-weight:400}
+.tag.ok{color:var(--ok);border-color:#1f6b55}.tag.bad{color:var(--bad);border-color:#7a2f3d}
+.ask{color:var(--mute);margin:4px 0 12px}
+.how{color:var(--mute);font-size:14px;margin:10px 0 0;border-left:3px solid var(--line);padding-left:12px}
+.how b{color:var(--ink);font-weight:600}
+canvas{display:block;border-radius:8px;background:var(--bg2)}
+.row{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:10px 0 4px}
+button,select,input[type=text]{background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--acc)}button.on{border-color:var(--acc);color:var(--acc)}
+input[type=range]{accent-color:var(--acc);flex:1;min-width:120px}
+.info{font-size:13px;color:var(--mute);min-height:20px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--mute);margin:8px 0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+table.t{border-collapse:collapse;font-size:13px}
+table.t td,table.t th{border:1px solid var(--line);padding:3px 9px;text-align:right}
+table.t th{color:var(--mute);font-weight:500}
+.log{font-family:Consolas,Menlo,monospace;font-size:13px;background:var(--bg2);border-radius:8px;padding:8px 12px;min-height:38px;color:var(--ink)}
+footer{color:var(--dim);font-size:13px;padding:10px 0 50px}
+.lk{opacity:.5}
+@media(max-width:700px){h1{font-size:28px}}
+</style></head><body>
+<div class="wrap">
+<header class="hero">
+<div class="kicker">Lab console</div>
+<h1>Patient Zero</h1>
+<p class="lede">A virus is spreading and you are the analyst. This console runs on your own data. Every picture below is drawn by the lab itself; the tick next to each mission tells whether your program agrees with the lab. The lab never shows you the answer: it shows you how the algorithm gets there.</p>
+<canvas id="helix"></canvas>
+</header>
+<div id="banner"></div>
+<div class="prog" id="prog"></div>
+<div class="board" id="board"></div>
+
+<section class="m" id="map"><h2>Case map <span class="tag">your results on the reference genome</span></h2>
+<p class="ask">Red ticks: the places where your KMP found the marker. Move the mouse over a tick.</p>
+<canvas id="cvmap" height="120"></canvas><div class="info" id="maptip">&nbsp;</div><div class="legend" id="maplegend"></div></section>
+
+<section class="m" id="m1"><h2>1. Mutations <span class="tag" id="s1"></span></h2>
+<p class="ask">How many single-letter changes turn strain A (old) into strain B (new)?</p>
+<div class="row"><div><canvas id="cv1a"></canvas><div class="info" id="i1a">Hover over the map.</div></div>
+<div style="flex:1;min-width:300px"><canvas id="cv1b" height="190"></canvas>
+<div class="ctl"><span class="info">Move along the alignment</span><input type="range" id="r1" min="0" max="0" value="0"></div>
+<div class="legend" id="l1"></div></div></div>
+<div class="ctl"><button id="p1">Play: fill the table</button><span class="info" id="t1"></span></div>
+<p class="how"><b>What you are looking at.</b> Every cell of the map is one question: how far apart are the first i letters of A and the first j letters of B? Dark is close, bright is far. Your table is filled from the corner, and the cheapest route from corner to corner (the white line) is the list of mutations. A diagonal step is a letter that stayed or was replaced, a step down is a deletion, a step to the right is an insertion. The strip on the right is that route written out as letters.</p></section>
+
+<section class="m" id="m2"><h2>2. Shared core <span class="tag" id="s2"></span></h2>
+<p class="ask">Which letters do the two strains still have in common, in the same order?</p>
+<canvas id="cv2" height="230"></canvas>
+<div class="ctl"><button id="p2">Play: draw the shared letters</button><input type="range" id="r2" min="0" max="1000" value="1000"><span class="info" id="t2"></span></div>
+<p class="how"><b>What you are looking at.</b> The top bar is strain A, the bottom bar is strain B. Every line connects a letter that belongs to the longest common subsequence. Parallel lines mean a piece that was copied without change, lines that lean show that letters were added or removed before this place. Red notches on a bar are letters that are not in the common core: they are the changes.</p></section>
+
+<section class="m" id="m3"><h2>3. The marker <span class="tag" id="s3"></span></h2>
+<p class="ask">Where does the dangerous gene sit in the genome? Watch KMP read the text once, without ever going back.</p>
+<div class="ctl"><select id="d3"><option value="0">Your genome around the first hit</option><option value="1">Overlap demo: ACGAC in ACGACGACGT</option></select></div>
+<canvas id="cv3" height="250"></canvas>
+<div class="ctl"><button id="b3a">Back</button><button id="p3">Play</button><button id="b3b">Step</button><input type="range" id="r3" min="0" max="0" value="0"><select id="v3"><option value="900">slow</option><option value="450" selected>normal</option><option value="180">fast</option></select></div>
+<div class="log" id="g3"></div>
+<p class="how"><b>What you are looking at.</b> The top line is the text, the line below is the marker slid along it. The table under the marker is its prefix function. When a letter does not fit, KMP does not start again: the table says how much of the match is still useful (the number in the cell before the mismatch), the marker jumps by that and the text pointer stays. <span id="x3"></span></p></section>
+
+<section class="m" id="m4"><h2>4. Copied words <span class="tag" id="s4"></span></h2>
+<p class="ask">Which words of 12 letters of strain A also appear in strain B? Slide a window and keep a number that you update in one step.</p>
+<div class="ctl"><span class="info">Hash size</span><select id="d4"><option value="0">large (1 000 000 007)</option><option value="1">tiny (101): watch it lie</option></select><span class="info">Start in A at</span><input type="range" id="o4" min="0" max="0" value="0"></div>
+<canvas id="cv4" height="215"></canvas>
+<div class="ctl"><button id="b4a">Back</button><button id="p4">Play</button><button id="b4b">Step</button><input type="range" id="r4" min="0" max="0" value="0"></div>
+<div class="log" id="g4"></div>
+<div id="st4" style="margin-top:10px"></div>
+<p class="how"><b>What you are looking at.</b> The hash of a window is a number made from its letters. When the window moves one letter to the right, the old letter is subtracted, the rest is shifted and the new letter is added: one step instead of twelve. If the hash of the window is among the hashes of B, the words are probably equal, but only the letters can say it for sure. With a tiny hash size many different words share a number: switch it on and see how many false alarms appear.</p></section>
+
+<section class="m" id="m5"><h2>5. Whom to test <span class="tag" id="s5"></span></h2>
+<p class="ask">Every infection link needs at least one tested person. Watch the numbers climb from the leaves to the root.</p>
+<canvas id="cv5" height="320"></canvas>
+<div class="ctl"><button id="b5a">Back</button><button id="p5">Play</button><button id="b5b">Step</button><input type="range" id="r5" min="0" max="0" value="0"></div>
+<div class="log" id="g5"></div>
+<div class="legend"><span><span class="dot" style="background:#fb7185"></span>tested by your program</span><span><span class="dot" style="border:2px solid #2dd4bf;background:transparent"></span>chosen by the lab</span><span class="mono">t/s = cheapest cost if the person is tested / not tested</span></div>
+<p class="how"><b>What you are looking at.</b> Each person gets two numbers, looking only at the people below them: the cheapest cost if this person is tested, and if not. If the person is not tested, every child must be. If the person is tested, each child may be either way. The numbers climb to the root and the answer is read from the root; then the choice is rebuilt from the top. Equal prices can give several equally cheap sets, so your red people may differ from the lab's rings; the cost must be the same.</p></section>
+
+<footer>The page is written by Render.java from the results of your program and does not change them. Save a screenshot for your README.</footer>
+</div>
+<script>
+const D=/*DATA*/;
+
+/* ---------- helpers ---------- */
+const NC={A:'#4ade80',C:'#60a5fa',G:'#fbbf24',T:'#f87171','-':'#5d768a'};
+const $=id=>document.getElementById(id);
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function cv(id,h,w){const c=$(id);const r=window.devicePixelRatio||1;const pe=c.parentElement,cs=getComputedStyle(pe);const W=w||Math.max(560,(pe.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight))||900);const H=h||+c.getAttribute('height');
+  c.width=W*r;c.height=H*r;c.style.width=W+'px';c.style.height=H+'px';const x=c.getContext('2d');x.setTransform(r,0,0,r,0,0);return{c,x,w:W,h:H};}
+function txt(x,s,px,py,col,font,al){x.fillStyle=col||'#e8f0f6';x.font=font||'12px system-ui';x.textAlign=al||'left';x.fillText(s,px,py);x.textAlign='left';}
+function rr(x,px,py,w,h,r){x.beginPath();x.moveTo(px+r,py);x.arcTo(px+w,py,px+w,py+h,r);x.arcTo(px+w,py+h,px,py+h,r);x.arcTo(px,py+h,px,py,r);x.arcTo(px,py,px+w,py,r);x.closePath();}
+const MONO='13px Consolas,Menlo,monospace';
+/* generic player: render(step) draws, n = number of steps (0..n) */
+function Player(o){
+  const s={i:0,timer:null,n:o.n};
+  const play=$(o.play),slider=$(o.slider),back=o.back?$(o.back):null,step=o.step?$(o.step):null,speed=o.speed?$(o.speed):null;
+  s.set=function(i){s.i=Math.max(0,Math.min(s.n,i));if(slider){slider.max=s.n;slider.value=s.i;}o.render(s.i);};
+  s.stop=function(){if(s.timer){clearInterval(s.timer);s.timer=null;}if(play&&o.labels)play.textContent=o.labels[0];};
+  s.start=function(){if(s.i>=s.n)s.set(0);s.stop();if(play&&o.labels)play.textContent=o.labels[1];
+    const ms=o.ms?o.ms():(speed?+speed.value:400);
+    s.timer=setInterval(()=>{if(s.i>=s.n){s.stop();return;}s.set(s.i+(o.stride?o.stride():1));},ms);};
+  if(play)play.onclick=()=>{s.timer?s.stop():s.start();};
+  if(back)back.onclick=()=>{s.stop();s.set(s.i-1);};
+  if(step)step.onclick=()=>{s.stop();s.set(s.i+1);};
+  if(slider)slider.oninput=()=>{s.stop();s.set(+slider.value);};
+  if(speed)speed.onchange=()=>{if(s.timer)s.start();};
+  s.reset=function(n){s.stop();s.n=n;if(slider){slider.max=n;}s.set(0);};
+  if(slider){slider.max=s.n;slider.value=0;}
+  return s;
+}
+const dens=(x,y)=>Math.abs(x-y);
+
+/* ---------- the lab computes everything itself ---------- */
+const L={};
+(function(){
+ const A=D.A,B=D.B,n=A.length,m=B.length,W=m+1;
+ /* edit distance table and route */
+ const e=new Uint16Array((n+1)*W);
+ for(let i=0;i<=n;i++)e[i*W]=i;for(let j=0;j<=m;j++)e[j]=j;
+ for(let i=1;i<=n;i++){const ai=A.charCodeAt(i-1);for(let j=1;j<=m;j++){const s=e[(i-1)*W+j-1]+(ai===B.charCodeAt(j-1)?0:1),a=e[(i-1)*W+j]+1,b=e[i*W+j-1]+1;e[i*W+j]=s<a?(s<b?s:b):(a<b?a:b);}}
+ const cols=[],path=[];let i=n,j=m;path.push([i,j]);
+ while(i>0||j>0){
+  if(i>0&&j>0&&e[i*W+j]===e[(i-1)*W+j-1]+(A[i-1]===B[j-1]?0:1)){cols.push({a:A[i-1],b:B[j-1],t:A[i-1]===B[j-1]?'=':'s',i:i-1,j:j-1});i--;j--;}
+  else if(i>0&&e[i*W+j]===e[(i-1)*W+j]+1){cols.push({a:A[i-1],b:'-',t:'d',i:i-1,j:j});i--;}
+  else{cols.push({a:'-',b:B[j-1],t:'i',i:i,j:j-1});j--;}
+  path.push([i,j]);
+ }
+ cols.reverse();path.reverse();
+ L.edit={d:e,W,n,m,cols,path,dist:e[n*W+m],cnt:{s:0,d:0,i:0}};
+ for(const c of cols)if(c.t!=='=')L.edit.cnt[c.t]++;
+ /* lcs */
+ const l=new Uint16Array((n+1)*W);
+ for(let i=1;i<=n;i++){const ai=A.charCodeAt(i-1);for(let j=1;j<=m;j++){l[i*W+j]=ai===B.charCodeAt(j-1)?l[(i-1)*W+j-1]+1:Math.max(l[(i-1)*W+j],l[i*W+j-1]);}}
+ const pairs=[];i=n;j=m;
+ while(i>0&&j>0){if(A[i-1]===B[j-1]){pairs.push([i-1,j-1]);i--;j--;}else if(l[(i-1)*W+j]>=l[i*W+j-1])i--;else j--;}
+ pairs.reverse();L.lcs={len:l[n*W+m],pairs};
+ /* kmp */
+ const P=D.marker,pi=new Array(P.length).fill(0);
+ for(let i=1,k=0;i<P.length;i++){while(k>0&&P[i]!==P[k])k=pi[k-1];if(P[i]===P[k])k++;pi[i]=k;}
+ L.pi=pi;const G=D.genome,hits=[];
+ {let k=0;for(let i=0;i<G.length;i++){while(k>0&&(k===P.length||G[i]!==P[k]))k=pi[k-1];if(G[i]===P[k])k++;if(k===P.length)hits.push(i-P.length+1);}}
+ L.hits=hits;
+ /* shared words */
+ const K=12,set=new Set();for(let q=0;q+K<=m;q++)set.add(B.substr(q,K));
+ let sh=0;const flag=new Uint8Array(n);for(let p=0;p+K<=n;p++)if(set.has(A.substr(p,K))){flag[p]=1;sh++;}
+ L.shared={count:sh,flag,set,K};
+ /* tree dp */
+ const T=D.tree,adj=Array.from({length:T.n},()=>[]);for(let i=0;i<T.a.length;i++){adj[T.a[i]].push(T.b[i]);adj[T.b[i]].push(T.a[i]);}
+ const par=new Array(T.n).fill(-1),dep=new Array(T.n).fill(0),ord=[0];par[0]=0;
+ for(let h=0;h<ord.length;h++){const v=ord[h];for(const u of adj[v])if(par[u]<0){par[u]=v;dep[u]=dep[v]+1;ord.push(u);}}
+ function dp(cost){const take=new Array(T.n).fill(0),skip=new Array(T.n).fill(0),det=new Array(T.n);
+  for(let h=ord.length-1;h>=0;h--){const v=ord[h];take[v]+=cost[v];det[v]={cost:cost[v]};if(v!==0){const p=par[v];take[p]+=Math.min(take[v],skip[v]);skip[p]+=take[v];}}
+  const ch=new Array(T.n).fill(0);const tested=new Array(T.n).fill(false);tested[0]=take[0]<=skip[0];
+  for(let h=1;h<ord.length;h++){const v=ord[h],p=par[v];tested[v]=!tested[p]||take[v]<=skip[v];}
+  return{take,skip,tested,cost:Math.min(take[0],skip[0])};}
+ const ones=new Array(T.n).fill(1),d1=dp(ones),dc=dp(T.cost);
+ const top1=new Array(T.n).fill(0),top2=new Array(T.n).fill(0);let chain=0;
+ for(let h=ord.length-1;h>=0;h--){const v=ord[h];chain=Math.max(chain,top1[v]+top2[v]);if(v!==0){const p=par[v],hh=top1[v]+1;if(hh>top1[p]){top2[p]=top1[p];top1[p]=hh;}else if(hh>top2[p])top2[p]=hh;}}
+ L.tree={adj,par,dep,ord,dc,tests:d1.cost,cost:dc.cost,chain,children:adj.map((a,v)=>a.filter(u=>par[u]===v&&u!==0&&v!==u))};
+ L.tree.children=Array.from({length:T.n},()=>[]);for(let v=1;v<T.n;v++)L.tree.children[par[v]].push(v);
+})();
+
+/* ---------- statuses: only ticks, never the answers ---------- */
+const NAMES=['Mutations','Shared core','Marker hits','First hit','Border length','Shared words','Tests needed','Cheapest testing','Longest chain'];
+const MIS=[1,2,3,3,3,4,5,5,5];
+const truth=[L.edit.dist,L.lcs.len,L.hits.length,L.hits.length?L.hits[0]:-1,L.pi[L.pi.length-1]||0,L.shared.count,L.tree.tests,L.tree.cost,L.tree.chain];
+const lineOK=truth.map((t,i)=>D.my[i]===t);
+const coverOK=(function(){const T=D.tree;for(let i=0;i<T.a.length;i++)if(!T.tested[T.a[i]]&&!T.tested[T.b[i]])return false;return true;})();
+const misOK=[1,2,3,4,5].map(k=>lineOK.every((o,i)=>MIS[i]!==k||o)&&(k!==5||coverOK));
+
+/* ---------- hero, board, progress ---------- */
+(function(){
+ const board=$('board');
+ NAMES.forEach((nm,i)=>{const ok=lineOK[i];const d=document.createElement('div');d.className='cell '+(ok?'ok':'bad');
+  d.innerHTML='<span class="n">M'+MIS[i]+' · '+nm+'</span><span><span class="v mono">'+D.my[i]+'</span> <span class="mark">'+(ok?'✓':'✗')+'</span></span>';board.appendChild(d);});
+ const names=['Mutations','Shared core','The marker','Copied words','Whom to test'];
+ const prog=$('prog');let done=0;
+ misOK.forEach((ok,i)=>{if(ok)done++;const a=document.createElement('a');a.href='#m'+(i+1);a.className='chip '+(ok?'ok':'bad');a.textContent=(ok?'✓ ':'✗ ')+(i+1)+' '+names[i];prog.appendChild(a);
+  const t=$('s'+(i+1));t.className='tag '+(ok?'ok':'bad');t.textContent=ok?'your program agrees with the lab':'your program does not agree yet';});
+ const b=$('banner');
+ if(done===5){b.className='banner win';b.innerHTML='<b>Outbreak contained.</b> All 5 missions agree with the lab. Make a screenshot of this page for your README.';}
+ else{b.className='banner';b.innerHTML='<b>'+done+' of 5 missions agree with the lab.</b> A red mark does not tell you the answer: use <span class="mono">java tools/Check.java</span> and the example in <span class="mono">examples/tiny</span>, and watch the animation of the mission to see how the algorithm should behave.'+(coverOK?'':' <span style="color:var(--bad)">Mission 5: some infection link has nobody tested.</span>');}
+})();
+(function helix(){
+ const c=$('helix');let w=c.parentElement.clientWidth||900;const r=window.devicePixelRatio||1;c.width=w*r;c.height=96*r;c.style.width=w+'px';c.style.height='96px';
+ const x=c.getContext('2d');const S=D.A;let t=0;
+ function frame(){x.setTransform(r,0,0,r,0,0);x.clearRect(0,0,w,96);const nrung=Math.floor(w/16);
+  for(let k=0;k<nrung;k++){const px=k*16+8,ph=k*.42+t,y1=48+Math.sin(ph)*34,y2=48-Math.sin(ph)*34,depth=(Math.cos(ph)+1)/2;
+   const L1=S[k%S.length];x.globalAlpha=.25+.55*depth;x.strokeStyle='#2c4254';x.lineWidth=2;x.beginPath();x.moveTo(px,y1);x.lineTo(px,y2);x.stroke();
+   x.fillStyle=NC[L1];x.beginPath();x.arc(px,y1,3+2*depth,0,6.3);x.fill();
+   const comp={A:'T',T:'A',C:'G',G:'C'}[L1];x.fillStyle=NC[comp];x.beginPath();x.arc(px,y2,3+2*(1-depth),0,6.3);x.fill();}
+  x.globalAlpha=1;t+=.012;if(!window.__still)requestAnimationFrame(frame);}
+ frame();
+})();
+
+/* ---------- case map ---------- */
+function drawMap(){
+ const {c,x,w,h}=cv('cvmap',120);const pad=16,Lw=w-2*pad,N=D.genome.length,sx=p=>pad+p/N*Lw;
+ const pal=['#60a5fa','#fbbf24','#4ade80','#c084fc','#fb923c','#2dd4bf','#f87171','#94a3b8','#f472b6','#818cf8','#a3e635'];
+ const ticks=[];const ry=34;
+ x.fillStyle='#0e171f';x.fillRect(pad,ry,Lw,12);x.strokeStyle='#233342';x.strokeRect(pad,ry,Lw,12);
+ for(let t=0;t<=N;t+=5000){x.fillStyle='#5d768a';x.fillRect(sx(t),ry+12,1,5);if(sx(t)<w-40)txt(x,String(t),sx(t)-10,ry+30,'#5d768a');}
+ const my=ry+50;txt(x,'marker '+D.marker,pad,my-6,'#8ba2b4');x.strokeStyle='#fb7185';x.lineWidth=2;
+ for(const p of D.hits){x.beginPath();x.moveTo(sx(p),my);x.lineTo(sx(p),my+14);x.stroke();ticks.push({x:sx(p),y:my+7,s:'marker '+D.marker+' at position '+p});}
+ $('maplegend').innerHTML='<span><span class="dot" style="background:#fb7185"></span>marker '+D.marker+': '+D.hits.length+' hits</span>';
+ c.onmousemove=e=>{const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my2=e.clientY-r.top;let best=null,bd=60;for(const t of ticks){const dd=Math.abs(t.x-mx)*3+Math.abs(t.y-my2);if(dd<bd){bd=dd;best=t;}}$('maptip').textContent=best?best.s:' ';};
+}
+
+/* ===== Mission 1: edit-distance map ===== */
+const M1={};
+function mod1(){
+ const E=L.edit,n=E.n,m=E.m,W=E.W;
+ if(!M1.off){let mx=1;for(const v of E.d)if(v>mx)mx=v;
+  const stops=[[14,23,31],[17,94,100],[45,212,191],[253,224,138]],lut=[];
+  for(let k=0;k<256;k++){const f=k/255*(stops.length-1),a=Math.min(stops.length-2,Math.floor(f)),u=f-a;lut.push(stops[a].map((c,q)=>Math.round(c+(stops[a+1][q]-c)*u)));}
+  const off=document.createElement('canvas');off.width=W;off.height=n+1;const ox=off.getContext('2d'),img=ox.createImageData(W,n+1);
+  for(let i=0;i<=n;i++)for(let j=0;j<=m;j++){const c=lut[Math.round(255*E.d[i*W+j]/mx)],p=4*(i*W+j);img.data[p]=c[0];img.data[p+1]=c[1];img.data[p+2]=c[2];img.data[p+3]=255;}
+  ox.putImageData(img,0,0);M1.off=off;}
+ const wrap=$('m1').clientWidth;const S=Math.max(260,Math.min(470,Math.floor((wrap-70)*0.5)));M1.S=S;
+ const win=36;$('r1').max=Math.max(0,E.cols.length-win);
+ function drawMap(step){
+  const {c,x}=cv('cv1a',S,S);M1.step=step;const frac=Math.min(1,step/60),t=frac*(n+m);
+  x.fillStyle='#0e171f';x.fillRect(0,0,S,S);
+  const sxs=S/W,sy=S/(n+1);
+  x.save();x.beginPath();
+  const P=(i,j)=>[j*sxs,i*sy];
+  const pts=[P(0,0),P(0,Math.min(t,m)),P(Math.max(0,t-m),Math.min(t,m)),P(Math.min(t,n),Math.max(0,t-Math.min(t,n))),P(Math.min(t,n),0)];
+  pts.forEach((p,k)=>k?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.closePath();x.clip();
+  x.imageSmoothingEnabled=true;x.drawImage(M1.off,0,0,S,S);x.restore();
+  if(step>60){const k=Math.floor((step-60)/30*E.path.length);x.strokeStyle='#fff';x.lineWidth=1.6;x.beginPath();
+   for(let q=0;q<=Math.min(k,E.path.length-1);q++){const p=P(E.path[q][0],E.path[q][1]);q?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]);}x.stroke();}
+  if(frac<1){const a=P(0,Math.min(t,m)),b=P(Math.min(t,n),Math.max(0,t-Math.min(t,n)));x.strokeStyle='rgba(255,255,255,.35)';x.setLineDash([4,4]);x.beginPath();x.moveTo(a[0],a[1]);x.lineTo(b[0],b[1]);x.stroke();x.setLineDash([]);}
+  txt(x,'B →',S-34,12,'#e8f0f6','11px system-ui');txt(x,'A ↓',4,S-6,'#e8f0f6','11px system-ui');
+  const cur=M1.cur||0;if(step>=90&&E.path.length){const q=Math.min(E.path.length-1,cur+Math.floor(win/2));const p=P(E.path[q][0],E.path[q][1]);x.fillStyle='#fbbf24';x.beginPath();x.arc(p[0],p[1],4,0,6.3);x.fill();}
+  M1.box=c.getBoundingClientRect();
+  $('t1').textContent=step<60?'filling the table: '+Math.round(frac*100)+'%':(step<90?'drawing the cheapest route':'done');
+ }
+ function drawStrip(){
+  const q=+$('r1').value;M1.cur=q;const {x,w,h}=cv('cv1b',190,Math.max(300,wrap-70-M1.S-28));
+  const bw=Math.floor((w-30)/win),x0=20;
+  txt(x,'A',2,62,'#8ba2b4','13px system-ui');txt(x,'B',2,130,'#8ba2b4','13px system-ui');
+  for(let k=0;k<win;k++){const c=E.cols[q+k];if(!c)break;const px=x0+k*bw;
+   const ty={s:'#fb7185','d':'#60a5fa','i':'#fbbf24','=':null}[c.t];
+   for(const [row,ch,yy] of [[0,c.a,40],[1,c.b,108]]){
+    if(ch==='-'){x.strokeStyle='#506879';x.setLineDash([3,3]);rr(x,px+1,yy,bw-2,30,5);x.stroke();x.setLineDash([]);}
+    else{x.fillStyle=NC[ch]+'33';rr(x,px+1,yy,bw-2,30,5);x.fill();x.strokeStyle=ty||NC[ch];x.lineWidth=ty?2:1;rr(x,px+1,yy,bw-2,30,5);x.stroke();x.lineWidth=1;
+     txt(x,ch,px+bw/2,yy+20,NC[ch],'bold '+Math.max(9,Math.min(15,bw-6))+'px Consolas,Menlo,monospace','center');}}
+   const sym={'=':'|',s:'×',d:'del',i:'ins'}[c.t];txt(x,sym,px+bw/2,92,ty||'#506879','12px system-ui','center');
+   if(k%10===0)txt(x,String(q+k),px+2,30,'#5d768a','10px system-ui');}
+  $('l1').innerHTML='<span><span class="dot" style="background:#fb7185"></span>replaced</span><span><span class="dot" style="background:#60a5fa"></span>removed in B</span><span><span class="dot" style="background:#fbbf24"></span>added in B</span>';
+  if(M1.step>=90)drawMap(M1.step);
+ }
+ M1.p=Player({n:90,play:'p1',render:drawMap,labels:['Play: fill the table','Pause'],ms:()=>60});
+ $('r1').oninput=drawStrip;
+ const c=$('cv1a');
+ c.onmousemove=e=>{const r=c.getBoundingClientRect(),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;const j=Math.min(m,Math.floor(px*W)),i=Math.min(n,Math.floor(py*(n+1)));
+  $('i1a').textContent='A['+i+'] = '+(A_(i))+', B['+j+'] = '+(B_(j))+', distance of the first '+i+' and '+j+' letters: '+E.d[i*W+j];};
+ function A_(i){return i>0?D.A[i-1]:'start';}function B_(j){return j>0?D.B[j-1]:'start';}
+ M1.p.set(90);drawStrip();
+}
+/* ===== Mission 2: shared core ribbons ===== */
+function mod2(){
+ const E=L.edit,pairs=L.lcs.pairs,n=E.n,m=E.m;
+ function draw(step){
+  const {x,w,h}=cv('cv2',230);const pad=16,Lw=w-2*pad,f=step/100,upto=Math.floor(f*pairs.length);
+  const ya=44,yb=186,bh=14;x.fillStyle='#0e171f';x.fillRect(0,0,w,h);
+  x.fillStyle='#233342';rr(x,pad,ya-bh,Lw,bh,3);x.fill();rr(x,pad,yb,Lw,bh,3);x.fill();
+  txt(x,'strain A, '+n+' letters',pad,ya-bh-8,'#8ba2b4','12px system-ui');txt(x,'strain B, '+m+' letters',pad,yb+bh+16,'#8ba2b4','12px system-ui');
+  x.lineWidth=.8;
+  for(let k=0;k<upto;k++){const p=pairs[k];x.strokeStyle=NC[D.A[p[0]]]+'55';x.beginPath();x.moveTo(pad+p[0]/n*Lw,ya);x.lineTo(pad+p[1]/m*Lw,yb);x.stroke();}
+  const ma=new Uint8Array(n),mb=new Uint8Array(m);for(let k=0;k<upto;k++){ma[pairs[k][0]]=1;mb[pairs[k][1]]=1;}
+  const lastA=upto?pairs[upto-1][0]:0,lastB=upto?pairs[upto-1][1]:0;
+  x.fillStyle='#fb7185';for(let i=0;i<=lastA;i++)if(!ma[i])x.fillRect(pad+i/n*Lw,ya-bh,Math.max(1.2,Lw/n),bh);
+  for(let j=0;j<=lastB;j++)if(!mb[j])x.fillRect(pad+j/m*Lw,yb,Math.max(1.2,Lw/m),bh);
+  $('t2').textContent=step<100?'drawn: '+step+'%':'';
+ }
+ M2p=Player({n:100,play:'p2',slider:'r2',render:draw,labels:['Play: draw the shared letters','Pause'],ms:()=>70});
+ M2p.set(100);
+}
+let M2p;
+
+/* ===== Mission 3: KMP ===== */
+const M3={};
+function kmpSim(T,P){
+ const pi=new Array(P.length).fill(0);for(let i=1,k=0;i<P.length;i++){while(k>0&&P[i]!==P[k])k=pi[k-1];if(P[i]===P[k])k++;pi[i]=k;}
+ const st=[];let k=0;const m=P.length;
+ for(let i=0;i<T.length;i++){
+  for(;;){
+   if(k===m){st.push({t:'fall',i,k,to:pi[k-1]});k=pi[k-1];continue;}
+   if(k>0&&T[i]!==P[k]){st.push({t:'mis',i,k,to:pi[k-1]});k=pi[k-1];continue;}
+   break;}
+  if(T[i]===P[k]){st.push({t:'ok',i,k});k++;if(k===m)st.push({t:'found',i,k:m});}
+  else st.push({t:'miss0',i,k:0});
+ }
+ return{pi,st};
+}
+function mod3(){
+ const demo=+$('d3').value;let T,P,off=0;
+ if(demo===1){T='ACGACGACGT';P='ACGAC';}
+ else{P=D.marker;const f=L.hits.length?L.hits[0]:0;off=Math.max(0,Math.min(D.genome.length-46,f-16));T=D.genome.substr(off,46);}
+ const S=kmpSim(T,P);M3.S=S;
+ function draw(s){
+  const {x,w,h}=cv('cv3',250);const m=P.length,cols=Math.max(T.length,m)+1;const bw=Math.max(14,Math.min(24,Math.floor((w-24)/cols)));
+  const x0=Math.max(8,Math.floor((w-bw*T.length)/2));x.fillStyle='#0e171f';x.fillRect(0,0,w,h);
+  const st=s>0?S.st[s-1]:null;
+  let i=st?st.i:-1,k=st?st.k:0;
+  if(st&&st.t==='found')k=m-1;
+  /* text row */
+  txt(x,'text',6,22,'#5d768a','11px system-ui');
+  for(let q=0;q<T.length;q++){const px=x0+q*bw;x.fillStyle=NC[T[q]]+(q<=i?'44':'18');rr(x,px+1,28,bw-2,bw+4,4);x.fill();
+   x.strokeStyle=q===i?'#fff':'#233342';x.lineWidth=q===i?2:1;rr(x,px+1,28,bw-2,bw+4,4);x.stroke();x.lineWidth=1;
+   txt(x,T[q],px+bw/2,28+bw*0.85+2,NC[T[q]],'bold 13px Consolas,Menlo,monospace','center');}
+  if(i>=0){const px=x0+i*bw+bw/2;x.fillStyle='#fff';x.beginPath();x.moveTo(px-5,28+bw+14);x.lineTo(px+5,28+bw+14);x.lineTo(px,28+bw+6);x.fill();txt(x,'i = '+(off+i),px,28+bw+30,'#e8f0f6','11px system-ui','center');}
+  /* pattern row */
+  const sh=i>=0?(st.t==='found'?i-m+1:i-k):0,py=112;
+  txt(x,'marker, slid to start at '+(off+sh),6,py-8,'#5d768a','11px system-ui');
+  for(let q=0;q<m;q++){const px=x0+(sh+q)*bw;let state='dim';
+   if(st){if(st.t==='found')state='good';else if(q<k)state='good';else if(q===k&&(st.t==='ok'))state='good';else if(q===k&&(st.t==='mis'||st.t==='miss0'))state='bad';else if(q===k&&st.t==='fall')state='dim';}
+   const col=state==='good'?'#34d399':state==='bad'?'#fb7185':'#233342';
+   x.fillStyle=state==='dim'?'#121d27':col+'33';rr(x,px+1,py,bw-2,bw+4,4);x.fill();x.strokeStyle=col;x.lineWidth=state==='dim'?1:2;rr(x,px+1,py,bw-2,bw+4,4);x.stroke();x.lineWidth=1;
+   txt(x,P[q],px+bw/2,py+bw*0.85+2,state==='dim'?'#506879':NC[P[q]],'bold 13px Consolas,Menlo,monospace','center');}
+  /* prefix table */
+  const ty=186;txt(x,'prefix function of the marker',6,ty-8,'#5d768a','11px system-ui');
+  const tbw=Math.min(34,Math.floor((w-24)/m));const tx=Math.max(8,Math.floor((w-tbw*m)/2));
+  for(let q=0;q<m;q++){const hi=st&&(st.t==='mis'||st.t==='fall')&&q===st.k-1;
+   x.fillStyle=hi?'#fbbf2433':'#121d27';rr(x,tx+q*tbw+1,ty,tbw-2,44,4);x.fill();x.strokeStyle=hi?'#fbbf24':'#233342';rr(x,tx+q*tbw+1,ty,tbw-2,44,4);x.stroke();
+   txt(x,P[q],tx+q*tbw+tbw/2,ty+17,NC[P[q]],'bold 13px Consolas,Menlo,monospace','center');txt(x,String(S.pi[q]),tx+q*tbw+tbw/2,ty+36,hi?'#fbbf24':'#e8f0f6','13px Consolas,Menlo,monospace','center');}
+  /* log */
+  let msg='Press Play or Step. KMP reads the text from left to right and never moves the text pointer back.';
+  if(st){const a=T[st.i];
+   if(st.t==='ok')msg='text['+(off+st.i)+'] = '+a+' equals marker['+st.k+'] = '+P[st.k]+'. The match is now '+(st.k+1)+' letters long.';
+   else if(st.t==='mis')msg='text['+(off+st.i)+'] = '+a+' differs from marker['+st.k+'] = '+P[st.k]+'. Fall back: pi['+(st.k-1)+'] = '+st.to+', so the match shrinks from '+st.k+' to '+st.to+'. The text pointer stays.';
+   else if(st.t==='miss0')msg='text['+(off+st.i)+'] = '+a+' does not start the marker. Nothing matched yet, move on.';
+   else if(st.t==='found')msg='The whole marker matches: hit at position '+(off+st.i-m+1)+'.';
+   else msg='After a full match the match shrinks to pi['+(st.k-1)+'] = '+st.to+': a second hit may overlap this one.';}
+  $('g3').textContent=msg;
+ }
+ if(M3.p)M3.p.stop();
+ M3.p=Player({n:S.st.length,play:'p3',back:'b3a',step:'b3b',slider:'r3',speed:'v3',render:draw,labels:['Play','Pause']});
+ M3.p.set(0);
+}
+/* ===== Mission 4: Rabin-Karp ===== */
+const M4={};
+function rhFor(mod){const BASE=131,K=12;let top=1;for(let i=1;i<K;i++)top=top*BASE%mod;
+ function all(S){const hs=[];if(S.length<K)return hs;let h=0;for(let i=0;i<K;i++)h=(h*BASE+S.charCodeAt(i))%mod;hs.push(h);
+  for(let i=1;i+K<=S.length;i++){h=(h-S.charCodeAt(i-1)*top%mod+mod)%mod;h=(h*BASE+S.charCodeAt(i+K-1))%mod;hs.push(h);}return hs;}
+ return{all,top,BASE};}
+function mod4prep(){
+ const mods=[1000000007,101];M4.m=mods.map(mod=>{const r=rhFor(mod),ha=r.all(D.A),hb=r.all(D.B),set=new Set(hb);let fa=0;
+  for(let p=0;p<ha.length;p++)if(set.has(ha[p])&&!L.shared.flag[p])fa++;return{mod,r,ha,hb,set,fa,windows:ha.length};});
+ $('st4').innerHTML='<table class="t"><tr><th>hash size</th><th>windows checked in A</th><th>false alarms (same hash, different letters)</th></tr>'+
+  M4.m.map(o=>'<tr><td style="text-align:left">'+o.mod.toLocaleString('en-US').replace(/,/g,' ')+'</td><td>'+o.windows+'</td><td'+(o.fa?' style="color:#fb7185"':'')+'>'+o.fa+'</td></tr>').join('')+'</table>';
+ const o=$('o4');o.max=Math.max(0,D.A.length-12-28);
+}
+function mod4(){
+ const K=12,mi=+$('d4').value,Mx=M4.m[mi],start=+$('o4').value,seg=D.A.substr(start,Math.min(40,D.A.length-start)),nw=Math.max(0,seg.length-K+1);
+ function draw(s){
+  const {x,w,h}=cv('cv4',215);x.fillStyle='#0e171f';x.fillRect(0,0,w,h);
+  const bw=Math.max(14,Math.min(24,Math.floor((w-24)/Math.max(seg.length,1))));const x0=Math.max(8,Math.floor((w-bw*seg.length)/2));
+  const win=Math.min(s,nw-1);const p=start+win;
+  for(let q=0;q<seg.length;q++){const px=x0+q*bw;const inw=q>=win&&q<win+K;x.fillStyle=NC[seg[q]]+(inw?'55':'1c');rr(x,px+1,34,bw-2,bw+4,4);x.fill();
+   txt(x,seg[q],px+bw/2,34+bw*0.85+2,inw?NC[seg[q]]:'#506879','bold 13px Consolas,Menlo,monospace','center');}
+  /* window frame with verdict */
+  let verdict='none',msg='';const hs=Mx.ha[p],inB=Mx.set.has(hs),real=!!L.shared.flag[p];
+  if(nw>0){verdict=!inB?'grey':(real?'good':'bad');
+   const col={grey:'#8ba2b4',good:'#34d399',bad:'#fb7185'}[verdict];x.strokeStyle=col;x.lineWidth=3;rr(x,x0+win*bw-1,30,K*bw+2,bw+12,7);x.stroke();x.lineWidth=1;
+   txt(x,'window '+p+'..'+(p+K-1),x0+win*bw,24,col,'11px system-ui');
+   /* hash arithmetic */
+   const cur=Mx.ha[p];let line1;
+   if(win===0)line1='hash = the 12 letters read as a number  =  '+cur;
+   else{const old=Mx.ha[p-1],rem=D.A.charCodeAt(p-1),add=D.A.charCodeAt(p+K-1);
+    line1='old hash '+old+'   remove '+D.A[p-1]+' ('+rem+' × '+Mx.r.top+')   shift × '+Mx.r.BASE+'   add '+D.A[p+K-1]+' ('+add+')   =  new hash '+cur;}
+   txt(x,line1,10,34+bw+54,'#e8f0f6','12px Consolas,Menlo,monospace');
+   let l2=inB?'This hash is in the set of hashes of B. Compare the letters: ':'This hash is not in the set of hashes of B: the word is not in B.';
+   if(inB)l2+=real?'equal. A shared word!':'DIFFERENT. A false alarm (a collision).';
+   txt(x,l2,10,34+bw+78,col,'13px system-ui');
+   /* counters so far */
+   let sharedSoFar=0,fa=0;for(let q=0;q<=win;q++){const pp=start+q;if(L.shared.flag[pp])sharedSoFar++;else if(Mx.set.has(Mx.ha[pp]))fa++;}
+   txt(x,'in this stretch so far:  shared windows '+sharedSoFar+'   false alarms '+fa,10,34+bw+104,'#8ba2b4','12px system-ui');
+   const cs=34+bw+130;txt(x,'Cost of one step: 1 subtraction, 1 multiplication, 1 addition. Recomputing 12 letters each time would cost 12 times more.',10,cs,'#5d768a','12px system-ui');
+  }
+  $('g4').textContent=nw?'Window '+(win+1)+' of '+nw+' in this stretch (positions '+start+' to '+(start+seg.length-1)+' of strain A).':'Strain A is shorter than 12 letters.';
+ }
+ if(M4.p)M4.p.stop();
+ M4.p=Player({n:Math.max(0,nw-1),play:'p4',back:'b4a',step:'b4b',slider:'r4',ms:()=>(mi?350:420),render:draw,labels:['Play','Pause']});
+ M4.p.set(0);
+}
+
+/* ===== Mission 7: tree dp ===== */
+const M5={};
+function mod5(){
+ const T=D.tree,n=T.n,Tr=L.tree,dc=Tr.dc;const ord=Tr.ord;
+ const layers={};let maxd=0;ord.forEach(v=>{maxd=Math.max(maxd,Tr.dep[v]);(layers[Tr.dep[v]]=layers[Tr.dep[v]]||[]).push(v);});
+ const maxw=Math.max(...Object.values(layers).map(l=>l.length));const H=Math.max(260,maxw*30+40);
+ function draw(s){
+  const {x,w}=cv('cv5',H,Math.max(320,$('m5').clientWidth-46));x.fillStyle='#0e171f';x.fillRect(0,0,w,H);
+  const pad=34,px=[],py=[];for(const d in layers)layers[d].forEach((v,i)=>{px[v]=pad+(+d)/Math.max(1,maxd)*(w-2*pad);py[v]=22+(i+.5)*(H-50)/layers[d].length;});
+  const up=Math.min(s,n),down=Math.max(0,s-n);const shown=new Set(ord.slice(n-up));const decided=new Set(ord.slice(0,down));
+  const curUp=up>0&&down===0?ord[n-up]:-1,curDown=down>0?ord[down-1]:-1;
+  for(let i=0;i<T.a.length;i++){const u=T.a[i],v=T.b[i],cov=T.tested[u]||T.tested[v];x.strokeStyle=cov?'#33495a':'#fb7185';x.lineWidth=cov?1.4:3.5;x.beginPath();x.moveTo(px[u],py[u]);x.lineTo(px[v],py[v]);x.stroke();}
+  const r=Math.max(6,Math.min(10,(w-2*pad)/(maxd+1)/3.4));
+  for(let v=0;v<n;v++){
+   if(decided.has(v)&&dc.tested[v]){x.strokeStyle='#2dd4bf';x.lineWidth=3;x.beginPath();x.arc(px[v],py[v],r+4,0,6.3);x.stroke();}
+   if(v===curUp||v===curDown){x.strokeStyle='#fbbf24';x.lineWidth=3;x.beginPath();x.arc(px[v],py[v],r+8,0,6.3);x.stroke();}
+   x.beginPath();x.arc(px[v],py[v],r,0,6.3);x.fillStyle=T.tested[v]?'#fb7185':'#172431';x.fill();x.strokeStyle=T.tested[v]?'#fb7185':'#8ba2b4';x.lineWidth=1.2;x.stroke();
+   if(shown.has(v))txt(x,dc.take[v]+'/'+dc.skip[v],px[v],py[v]+r+12,'#8ba2b4','10px Consolas,Menlo,monospace','center');}
+  txt(x,'person 0 (the root)',pad-24,12,'#5d768a','11px system-ui');
+  let msg='Press Play or Step. The numbers are computed from the leaves up to person 0, then the choice is rebuilt from person 0 down.';
+  if(curUp>=0){const v=curUp,ch=Tr.children[v];
+   if(!ch.length)msg='Person '+v+' is a leaf (testing costs '+T.cost[v]+'): take = '+dc.take[v]+', skip = 0.';
+   else msg='Person '+v+' (cost '+T.cost[v]+'): take = '+T.cost[v]+' + '+ch.map(c=>'min('+dc.take[c]+', '+dc.skip[c]+')').join(' + ')+' = '+dc.take[v]+'.   skip = '+ch.map(c=>dc.take[c]).join(' + ')+' = '+dc.skip[v]+'.';}
+  if(curDown>=0){const v=curDown;if(v===0)msg='The root: take = '+dc.take[0]+', skip = '+dc.skip[0]+'. Choose the smaller: '+(dc.tested[0]?'test':'do not test')+' person 0.';
+   else{const p=Tr.par[v];msg='Person '+v+': the parent '+p+' is '+(dc.tested[p]?'tested, so the link is covered and this person may be either: take '+dc.take[v]+' vs skip '+dc.skip[v]+' → '+(dc.tested[v]?'test':'skip')+'.':'not tested, so this person must be tested.');}}
+  if(s===2*n)msg='Done. The teal rings are the lab\'s choice: every link has a ring at one end at least.';
+  $('g5').textContent=msg;
+ }
+ if(M5.p)M5.p.stop();
+ M5.p=Player({n:2*n,play:'p5',back:'b5a',step:'b5b',slider:'r5',ms:()=>(n>60?160:300),render:draw,labels:['Play','Pause']});
+ M5.p.set(2*n);
+}
+/* ===== start ===== */
+function init(){
+ [M1.p,M2p,M3.p,M4.p,M5.p].forEach(p=>p&&p.stop&&p.stop());
+ drawMap();mod1();mod2();mod3();if(!M4.m)mod4prep();mod4();mod5();
+}
+$('d3').onchange=mod3;$('d4').onchange=mod4;$('o4').oninput=mod4;
+init();
+let lastW=innerWidth,tm;addEventListener('resize',()=>{if(innerWidth===lastW)return;lastW=innerWidth;clearTimeout(tm);tm=setTimeout(init,250);});
+</script></body></html>
+
