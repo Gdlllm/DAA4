@@ -1,75 +1,155 @@
 # Assignment 4. Patient Zero
 
-Student ID:
-Name:
-Group:
+Student ID: **не предоставлен**  
+Name: **не предоставлено**  
+Group: **не предоставлена**
 
-This file is the report. Fill it in as you go. How to start: `START_HERE.md`. The task: `docs/Assignment4.pdf`.
+**Текущие данные демонстрационные.** Файлы в `data` сгенерированы штатным `MakeVariant.java` с seed `DAA4-DEMO`. Это не Student ID и не персональный вариант для сдачи. Результаты, HTML и скриншот относятся к этому набору.
+
+## Запуск в VS Code
+
+1. Открыть **File → Open Folder → DAA4**: папку, содержащую `src` и этот README.
+2. Нужен JDK 17 или новее: проверить `java -version` и `javac -version`.
+3. Для Run/Debug установить рекомендуемый **Extension Pack for Java**. Для терминала расширение не требуется.
+4. **Ctrl+Shift+B** запускает сборку и `Main`. Или открыть `src/Main.java` и нажать Run над `main`.
+5. Открыть `output/outbreak.html` в браузере. Интернет и сервер не нужны.
+
+Из терминала PowerShell в папке проекта:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 run
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 check
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 bench
+```
+
+ExecutionPolicy применяется только к этому процессу. Также доступны задачи через **Terminal → Run Task**.
+
+Обычные команды Java без скрипта:
+
+```text
+javac -encoding UTF-8 -d out src/*.java
+java -cp out Main
+java tools/Check.java
+java -cp out Bench
+```
+
+`Check.java` перезаписывает HTML последним примером, поэтому после него нужно снова запустить `Main`. `run.ps1 check` делает это автоматически.
+
+## Персональный вариант
+
+Выполнить задачу **DAA4: Generate personal variant and run**, введя свой ID точно как в Moodle. Или заменить пример ID в команде:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\run.ps1 generate "012345"
+```
+
+Команда заменяет четыре файла в `data`, пересобирает проект и обновляет `output/results.txt` и `output/outbreak.html`. Старый скриншот переносится в `output/outbreak-previous.png`.
+
+После этого указать имя, группу и ID выше, заменить девять строк ниже содержимым `output/results.txt`, обновить значения в ответах Mission 2 и Mission 3 и сохранить новый полный скриншот страницы в `output/outbreak.png`. Алгоритмы менять не требуется.
 
 ## Program output
 
-The 9 lines your program prints on your data (`java -cp out Main`):
+Демонстрационный вариант `DAA4-DEMO`, проверен 8 ноября 2026 года:
 
-    Mutations:
-    Shared core:
-    Marker hits:
-    First hit:
-    Border length:
-    Shared words:
-    Tests needed:
-    Cheapest testing:
-    Longest chain:
+```text
+Mutations: 86
+Shared core: 913
+Marker hits: 4
+First hit: 7552
+Border length: 3
+Shared words: 388
+Tests needed: 38
+Cheapest testing: 172
+Longest chain: 29
+```
 
-My outbreak report (a screenshot of `output/outbreak.html`):
+Один проверочный запуск со стартом JVM занял 0,284 секунды. Веб-консоль независимо пересчитала результаты и подтвердила все пять миссий.
 
-![outbreak](output/outbreak.png)
+![Outbreak report on demonstration data](output/outbreak.png)
 
 ## Questions
 
-Answer in your own words, two or three sentences each.
+### Mission 1
 
-Mission 1. What does the cell d[i][j] of your table mean, and how is it computed from other cells?
+`d[i][j]` — минимальное число операций для превращения первых `i` букв A в первые `j` букв B. Границы равны `d[i][0]=i`, `d[0][j]=j`; внутри таблицы берётся минимум из удаления `d[i-1][j]+1`, вставки `d[i][j-1]+1` и замены/совпадения `d[i-1][j-1]+cost`, где cost равен 0 для одинаковых букв и 1 для разных. Последняя ячейка отвечает на вопрос для полных строк.
 
-Mission 2. How is the longest common subsequence different from the longest common substring? My Shared core is bigger than the number of letters that are the same at the same place: why?
+### Mission 2
 
-Mission 3. What does the prefix function tell you, and why does the pointer in the text never go back in KMP? What is the Border length of my marker and what does it mean?
+Подпоследовательность сохраняет порядок букв, но допускает пропуски; подстрока должна быть непрерывной в обеих строках. В демонстрационном варианте LCS равна 913, а одинаковых букв на одинаковых индексах только 248: вставки и удаления сдвигают индексы, сохраняя порядок многих общих букв. При совпадении последних букв DP берёт диагональ плюс 1, иначе максимум сверху и слева.
 
-Mission 4. Why must you compare the letters after the hashes are equal? What happens to the cost of Rabin-Karp if many windows have the same hash?
+### Mission 3
 
-Mission 5. What are the two states of a person in your DP, and how do you get the answer for a person from its children? Why does a greedy "test the person with most links first" not always give the cheapest answer?
+`pi[i]` — длина самого длинного собственного префикса строки `p[0..i]`, который одновременно является её суффиксом. При несовпадении KMP переходит к `pi[j-1]`, сохраняя полезный суффикс уже прочитанного текста, поэтому указатель текста назад не двигается; такой же переход после полного совпадения позволяет находить перекрытия. Демонстрационный маркер `CTATCGCTA` имеет Border length 3: его начало и конец равны `CTA`, а более длинной собственной границы нет.
+
+### Mission 4
+
+Разные слова могут иметь одинаковый хеш, поэтому совпадение хешей обязательно проверяется посимвольно. При большом числе коллизий для каждого окна A могут проверяться многие окна B, что даёт худшее время `O(n*m*k)`; при малом числе кандидатов и фиксированном `k=12` ожидается линейный проход. Каждая подходящая позиция A учитывается один раз, независимо от количества её вхождений в B.
+
+### Mission 5
+
+`take[v]` и `skip[v]` — минимальная стоимость покрытия рёбер поддерева при тестировании вершины v и без него: `take[v]=cost[v]+sum(min(take[c],skip[c]))`, `skip[v]=sum(take[c])` по детям c. Ответ — минимум в корне; при восстановлении нетестированный родитель заставляет тестировать ребёнка, а тестированный разрешает выбрать более дешёвое состояние. Жадный выбор по числу связей не учитывает цены: в звезде с тремя листьями центр стоимостью 10 дороже, чем три листа стоимостью 1 каждый.
 
 ## AI use
 
-The syllabus requires you to say which AI tools you used and for what. Write the tool (ChatGPT, Copilot, other) and what you asked it: explain an idea, find an error, review code. Write "none" if you did not use any. If you took code or text from a book or a website, give the source here.
+Использован **OpenAI Codex (ChatGPT)**: подготовлены реализации алгоритмов, комментарии, дополнительные тесты, конфигурация VS Code и черновик отчёта; инструмент также запускал проверки, измерения и сохранял скриншот. Код решения и ответы сгенерированы с помощью AI; это не заявление о самостоятельном написании студентом. Перед сдачей студенту нужно разобраться в решении, проверить и переработать ответы своими словами согласно правилам задания.
+
+Источники постановки и инфраструктуры: предоставленный архив `patient-zero-starter_A4_lite.zip`, `docs/Assignment4.pdf`, `START_HERE.md`, `docs/Hints.md`. Код со сторонних сайтов или из книг не использовался. Исходные `Main.java`, `Input.java`, `Render.java`, `Generator.java`, `Bench.java`, `src/lab.html` и утилиты не изменены.
 
 ## Timing (Mission 7)
 
-Milliseconds, average of 3 runs, from `java -cp out Bench`.
+Фактический запуск неизменённого `Bench`, Windows, OpenJDK Temurin 25.0.1; среднее из трёх запусков. Полный вывод в `output/timing.txt`; ниже десятичная запятая заменена точкой.
 
-| test | size | time |
-|---|---|---|
-| naive search | 20 000 / 40 000 / 80 000 | |
-| KMP | 20 000 / 40 000 / 80 000 | |
-| edit distance | 500 / 1000 / 2000 / 4000 | |
+| test | size | time, ms |
+|---|---|---:|
+| naive search | 20 000, pattern 2 000 | 47.5 |
+| naive search | 40 000, pattern 2 000 | 107.6 |
+| naive search | 80 000, pattern 2 000 | 226.2 |
+| KMP | 20 000, pattern 2 000 | 5.1 |
+| KMP | 40 000, pattern 2 000 | 1.6 |
+| KMP | 80 000, pattern 2 000 | 0.9 |
+| edit distance | 500 × 500 | 14.3 |
+| edit distance | 1 000 × 1 000 | 12.6 |
+| edit distance | 2 000 × 2 000 | 27.3 |
+| edit distance | 4 000 × 4 000 | 111.2 |
 
-What do the numbers say about how the time grows? When you double the size, by how much does each time grow? Two or three sentences.
+При фиксированном шаблоне удвоение текста теоретически примерно удваивает время и наивного поиска `O(n*m)`, и KMP `O(n+m)`, но наивный метод делает значительно больше сравнений: здесь рост составил примерно 2.27 и 2.10 раза. Убывающие значения KMP и первый шаг edit distance отражают прогрев JVM/JIT и шум коротких измерений: по этим трём точкам нельзя надёжно оценить коэффициент роста KMP. Для edit distance удвоение обеих длин даёт вчетверо больше ячеек; последний переход показал `111.2/27.3 ≈ 4.07` раза.
 
 ## Complexity
 
-n is the length of the text (or of a strain), m the length of the pattern, k the length of the window, v the number of people. Fill in every algorithm you wrote.
+Для сравнения строк и Rabin-Karp `n=|A|`, `m=|B|`; для поиска n — длина текста, m — длина маркера. k — длина окна, h — число вхождений, v — число вершин, C — число пар окон, фактически проверенных после совпадения хешей.
 
-| algorithm | time | space | assumptions |
+| algorithm | time | additional space | assumptions |
 |---|---|---|---|
-| Edit distance | | | |
-| LCS | | | |
-| Prefix function and KMP | | | |
-| Rabin-Karp (shared words) | | | |
-| Tree DP | | | |
+| Edit distance | `O(n*m)` | `O(n*m)` | Полная таблица, постоянное число переходов на ячейку. |
+| LCS | `O(n*m)` | `O(n*m)` | Полная таблица, сравнение символов за O(1). |
+| Prefix function | `O(m)` | `O(m)` | Суммарное число уменьшений указателя ограничено числом увеличений. |
+| KMP | `O(n+m)` | `O(m+h)` | Включены префикс-функция и возвращаемые позиции, h <= n+1. |
+| Rabin-Karp (shared words) | Ожидаемое `O(n+m+C*k)`, худшее `O(n*m*k)` | `O(m)` | Ожидаемое O(1) для HashMap; сохраняются все позиции B. При фиксированном k=12 и малом числе коллизий ожидается O(n+m). |
+| Tree DP + reconstruction | `O(v)` | `O(v)` | Связное дерево, включён стек DFS. |
+| Longest chain | `O(v)` | `O(v)` | Один DFS, две максимальные глубины на вершину; ответ в рёбрах. |
+| Naive search (provided Bench) | `O(n*m)` | `O(1)` | Только сравнение времени, не реализация Mission 3. |
 
-## Before you submit
+Для DP точная оценка с учётом пустых строк — `O((n+1)*(m+1))`. Для Rabin-Karp первый хеш требует O(k), каждый сдвиг окна O(1); арифметика long не переполняется при выбранных BASE и MOD.
 
-- The four files in `data` and the screenshot `output/outbreak.png` are in the repository.
-- `java tools/Check.java` shows all examples right.
-- This README is filled in, the program output and the section AI use included.
-- The work is pushed to main (at least one commit per mission) and the repository is public.
-- The link is attached in Moodle.
+## Validation
+
+- Компиляция с `--release 17` прошла на JDK 25; отдельный запуск на JDK 17 не выполнялся.
+- `Check.java`: tiny, small, dense — все 9 строк совпали в каждом примере.
+- `AlgorithmTests`: 6630 проверок с фиксированными seed, независимыми простыми алгоритмами для строк, полным перебором покрытий и BFS из каждой вершины для диаметра.
+- Проверены пустые строки, перекрытия, повторения, отсутствие совпадений, настоящая коллизия хеша, одиночные вершины, нулевые цены и суммы больше Integer.MAX_VALUE.
+- Пустой шаблон соответствует всем границам текста; k <= 0 отклоняется с IllegalArgumentException (в задании k=12).
+- Рекурсивные обходы рассчитаны на размер дерева из задания: около 100 вершин. Огромные цепочки вне этого ограничения могут исчерпать стек.
+
+## Git and submission
+
+Локальный репозиторий создан на ветке main с отдельными коммитами по миссиям. История создана в ходе работы Codex и не имитирует самостоятельную работу студента. GitHub remote не настроен, публикация и отправка в Moodle не выполнялись.
+
+Перед сдачей:
+
+- [ ] Указать настоящие ID, имя, группу; сгенерировать персональные данные.
+- [ ] Обновить результаты, ответы о своём варианте и скриншот.
+- [ ] Разобрать код и переработать ответы; сохранить достоверное описание использования AI.
+- [x] Реализовать алгоритмы и пройти проверки примеров.
+- [x] Добавить измерения, сложность и скриншот демонстрационного варианта.
+- [ ] Создать публичный GitHub-репозиторий, отправить main, проверить доступность ссылки.
+- [ ] Прикрепить ссылку в Moodle до своего срока сдачи.
