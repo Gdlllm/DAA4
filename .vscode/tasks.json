@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "DAA4: Run",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/run.ps1", "run"],
+      "group": {"kind": "build", "isDefault": true},
+      "problemMatcher": []
+    },
+    {
+      "label": "DAA4: Check examples and algorithm tests",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/run.ps1", "check"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "DAA4: Benchmark",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/run.ps1", "bench"],
+      "problemMatcher": []
+    },
+    {
+      "label": "DAA4: Generate personal variant and run",
+      "type": "process",
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/run.ps1", "generate", "${input:studentId}"],
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {"id": "studentId", "type": "promptString", "description": "Exact Student ID from Moodle, including leading zeros"}
+  ]
+}
