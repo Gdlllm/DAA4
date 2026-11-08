@@ -142,7 +142,7 @@ For the DP algorithms, the bound including empty strings is `O((n+1)*(m+1))`. Fo
 
 ## Git and submission
 
-The local repository uses the main branch and contains separate commits for the missions. This history was created during the Codex session and does not represent independent student authorship. No GitHub remote is configured; the repository has not been published or submitted to Moodle.
+The repository uses the main branch and contains separate commits for the missions. This history was created during the Codex session and does not represent independent student authorship. The project is published at [Gdlllm/DAA4](https://github.com/Gdlllm/DAA4); public access and the required files have been verified. Submission to Moodle remains to be completed by the student.
 
 Section 5 of `docs/Assignment4.pdf` requires a **link to a public GitHub repository submitted in Moodle**. The repository must contain the source code, this README report, the four input files, and `output/outbreak.png`, with at least five commits on main. The PDF does not specify ZIP-only submission.
 
@@ -153,5 +153,5 @@ Before submission:
 - [ ] Understand the code and revise the answers; retain an accurate AI-use disclosure.
 - [x] Implement the algorithms and pass the example checks.
 - [x] Include timings, complexity analysis, and the personal-variant screenshot.
-- [ ] Create a public GitHub repository, push main, and verify that its link is accessible.
+- [x] Create a public GitHub repository, push main, and verify that its link is accessible.
 - [ ] Submit the repository link in Moodle before the deadline.
