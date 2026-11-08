@@ -4,6 +4,8 @@ import java.util.*;
  * Missions 3 and 4. Find a word in a long text.
  */
 public class Marker {
+    private static final long BASE = 257;
+    private static final long MOD = 1_000_000_007;
 
     /**
      * Mission 3a. The prefix function of p. pi[i] = the length of the longest proper prefix of p[0..i] that is
@@ -59,7 +61,50 @@ public class Marker {
      * Example: a = "ACGTAC", b = "TTACGT", k = 4: the words of a are ACGT, CGTA, GTAC; only ACGT is in b, so the answer is 1.
      */
     public static int sharedWords(String a, String b, int k) {
-        // TODO Mission 4
-        return -1;
+        if (k <= 0) throw new IllegalArgumentException("Window length must be positive");
+        if (k > a.length() || k > b.length()) return 0;
+        long power = 1;
+        for (int i = 1; i < k; i++) power = power * BASE % MOD;
+
+        // Keep every candidate position: different words can have the same hash.
+        Map<Long, List<Integer>> windows = new HashMap<>();
+        long hash = windowHash(b, k);
+        for (int j = 0; j <= b.length() - k; j++) {
+            windows.computeIfAbsent(hash, ignored -> new ArrayList<>()).add(j);
+            if (j < b.length() - k) {
+                hash = roll(hash, b.charAt(j), b.charAt(j + k), power);
+            }
+        }
+
+        int count = 0;
+        hash = windowHash(a, k);
+        for (int i = 0; i <= a.length() - k; i++) {
+            List<Integer> candidates = windows.get(hash);
+            if (candidates != null) {
+                for (int j : candidates) {
+                    int matched = 0;
+                    while (matched < k && a.charAt(i + matched) == b.charAt(j + matched)) matched++;
+                    if (matched == k) {
+                        count++;
+                        break; // Count this position of A only once.
+                    }
+                }
+            }
+            if (i < a.length() - k) {
+                hash = roll(hash, a.charAt(i), a.charAt(i + k), power);
+            }
+        }
+        return count;
+    }
+
+    private static long windowHash(String text, int k) {
+        long hash = 0;
+        for (int i = 0; i < k; i++) hash = (hash * BASE + text.charAt(i)) % MOD;
+        return hash;
+    }
+
+    private static long roll(long hash, char outgoing, char incoming, long power) {
+        long remaining = (hash - outgoing * power % MOD + MOD) % MOD;
+        return (remaining * BASE + incoming) % MOD;
     }
 }
